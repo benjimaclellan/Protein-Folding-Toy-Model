@@ -20,21 +20,20 @@ def plot_aa(aa):
     ax.set_yticklabels([])
     ax.set_xticklabels([])  
     
-    ax.scatter(aa.x, aa.y, label='Polar/Hydrophillic')
-    ax.scatter(aa.x[aa.H], aa.y[aa.H], label='Hydrophobic')
+    ax.scatter(aa.x, aa.y, label='Polar/Hydrophillic', color='darkorange')
+    ax.scatter(aa.x[aa.H], aa.y[aa.H], label='Hydrophobic', color='darkcyan')
     for i in range(0, aa.length-1):
         ax.plot([ aa.x[i], aa.x[i+1] ], [aa.y[i], aa.y[i+1] ], '-k')
     plt.title(("Energy: %i"%aa.prev_energy))
     plt.legend()
-    plt.show()
+    plt.draw()
 
-def save_im(aa, num):
+def save_im(aa, num, save_path):
     fig, ax = plt.subplots(1,1)
     ax.grid(which='both')
     ax.set_aspect('equal')
     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
     ax.yaxis.set_major_locator(MaxNLocator(integer=True))
-#    ax.axis([ min(aa.x)-1, max(aa.x)+1, min(aa.y)-1, max(aa.y)+1 ])
     ax.axis([ -1, aa.length+1, -aa.length//2-1, aa.length//2+1 ])
     xticks = np.arange(-1, aa.length+1, 1)
     yticks = np.arange(-aa.length//2-1, aa.length//2+1, 1)
@@ -49,16 +48,21 @@ def save_im(aa, num):
         ax.plot([ aa.temp_x[i], aa.temp_x[i+1] ], [aa.temp_y[i], aa.temp_y[i+1] ], '-k')
     plt.title(("Energy: %i"%aa.measure_energy(aa.temp_x, aa.temp_y)))
     
-    plt.savefig('protein/image_%i.png'%num, bbox_inches='tight')
+    plt.savefig('%s/image_%i.png'%(save_path,num), bbox_inches='tight')
     plt.close(fig)
 
 ## define our class which defines the amino acid chain
 class AminoAcidChain():
     
-    def __init__(self, numAA, H):
+    def __init__(self, numAA, H, x = None, y = None):
         self.length = numAA
-        self.x = np.arange(0,numAA)
-        self.y = np.zeros(numAA, dtype ='int')
+        if x == None:
+            x = np.arange(0,numAA)
+        if y == None:
+            y = np.zeros(numAA, dtype ='int')
+
+        self.x = x
+        self.y = y
         self.temp_x = np.arange(0,numAA)
         self.temp_y = np.zeros(numAA, dtype ='int')
         self.H = np.array(H)
@@ -158,26 +162,24 @@ class AminoAcidChain():
                         # do nothing, also favourable
                         
                     else:
-#                        energy += 1
                         energy += 0.5
                     
         return energy
 
 ## initialize starting linear strand
 n = 30
-#aa = AminoAcidChain( n , sample( range(0, n), randint(0,n) ) )
+aa = AminoAcidChain( n , sample( range(0, n), n//3 ) )
 
-aa = AminoAcidChain( n , sample( range(0, n), n//2 ) )
-
-#aa = AminoAcidChain(6, [0,5])
+im_step = 10
+save_path = 'temp_images/'
 
 aa.init_energy = aa.measure_energy(aa.x, aa.y)
 aa.prev_energy = aa.init_energy
 
 plot_aa(aa)
-save_im(aa, 0)
+save_im(aa, 0, save_path)
 
-num_steps = 3000
+num_steps = 2000
 energy_change = np.zeros(num_steps)
 step = 0
 prob_equal = 0.0
@@ -185,12 +187,9 @@ T = 0.0
 
 while step < num_steps:
     success = aa.move() 
-    
+
     if success == True:
         aa.temp_energy = aa.measure_energy(aa.temp_x, aa.temp_y)
-        
-        if step%100 == 0:
-            save_im(aa, step+1)
         
         if (aa.temp_energy - aa.prev_energy < 0) or ((aa.temp_energy == aa.prev_energy) and (random() < prob_equal)) :            
             if random() < T:
@@ -202,14 +201,16 @@ while step < num_steps:
                 aa.y = np.array(aa.temp_y)
                 aa.prev_energy = aa.temp_energy
                 
-                save_im(aa, step+1)
-#                save_im(aa, step+1)
-                
+                ## Save certain configurations for visualization
+                if im_step != None:
+            #if step%im_step == 0:
+                    save_im(aa, step+1, save_path)                
                 
         else:
             pass
-    energy_change[step] = aa.prev_energy
-    step += 1
+    
+        energy_change[step] = aa.prev_energy
+        step += 1
     
 plot_aa(aa)
 print("Started at:", aa.init_energy, ", Ended at:", aa.prev_energy)
